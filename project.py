@@ -26,13 +26,12 @@ def format_data(data):
   # converts time to useful measure
   # extracts trip duration
   # returns: [vendor id, pickup time formatted, passenger count, pickup pos, dropoff pos], trip duration
-  data = data.transpose()
-  trip_times = data[10] # extract trip times because we don't want those in PCA
-  data = np.delete(data, 10, 0)
-  data = np.delete(data, 9, 0)
-  data = np.delete(data, 3, 0)
-  data = np.delete(data, 2, 0)# remove pickuptime (remove this line when we have added time formatting)
-  data = np.delete(data, 0, 0)
+  trip_times = data[:,10] # extract trip times because we don't want those in PCA
+  data = np.delete(data, 10, 1)
+  data = np.delete(data, 9, 1)
+  data = np.delete(data, 3, 1)
+  data = np.delete(data, 2, 1)# remove pickuptime (remove this line when we have added time formatting)
+  data = np.delete(data, 0, 1)
 
   # for i in range(0,len(data[0])):
   #   # convert time
@@ -42,13 +41,12 @@ def format_data(data):
   return data, trip_times
 
 def PCA(data):
-  # Returns the principal components
-  means = data.mean(axis=1)
-  centered_data = data.transpose() - means
-
+  # Returns the principal components and singular values
+  means = data.mean(axis=0)
+  centered_data = data - means
   U,sv,Vt = np.linalg.svd(centered_data)
   V = Vt.transpose()
-  return V
+  return V,sv
 
 def visualizePCA(principal_components, data):
   A = np.dot(data.transpose(), principal_components[0,:])
@@ -56,11 +54,25 @@ def visualizePCA(principal_components, data):
   plt.scatter(A, B)
   plt.show()
 
+def visualizeVariance(sv):
+ squaredSV = sum(list(map(lambda x: x**2, sv)))
+ for i in range(len(sv)):
+    plt.bar(i, ((sv[i]**2)/squaredSV))
+ plt.show()
+
+def projectDataOntoPC(data, pcs, n):
+  # project data onto the first n pcs
+  a = np.dot(data,pcs[:,0:n])
+  return a
+
 data = np.array(pd.read_csv('reduced_train.csv'))
 treshold = 3
 filtered_data = removeOutliars(data, treshold)
-# visualizeOutliars(data,filtered_data,treshod)
+#visualizeOutliars(data,filtered_data,treshold)
 formatted_data, trip_times = format_data(filtered_data)
 
-principal_components = PCA(formatted_data)
-visualizePCA(principal_components, formatted_data)
+# principal_components, sv = PCA(formatted_data)
+# projected_data = projectDataOntoPC(formatted_data, principal_components, 2)
+
+# visualizePCA(principal_components, formatted_data)
+# visualizeVariance(sv)

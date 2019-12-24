@@ -130,3 +130,6 @@ dmypy.json
 
 # too large files
 *.csv
+
+#stupid icloud thing
+*.icloud
