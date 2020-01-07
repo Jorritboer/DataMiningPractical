@@ -128,8 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# too large files
-*.csv
-
 #stupid icloud thing
 *.icloud
