@@ -6,6 +6,7 @@ import datetime
 from sklearn import preprocessing
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+from geopy import distance
 
 def removeOutliars(data, treshold):
   # outliar removal
@@ -28,14 +29,15 @@ def format_data(data):
   # remove the non useful data for pca
   # converts time to useful measure
   # extracts trip duration
-  # returns: [vendor id, passenger count, pickup pos, dropoff pos, day of the year, day of the week, time], trip duration
+  # returns: [vendor id, passenger count, pickup pos, dropoff pos, day of the year, day of the week, time, distance], trip duration
   trip_times = data[:,10] # extract trip times because we don't want those in PCA
   pickup_times = data[:,2] # extract pickup times because we want to format it 
-  data = np.delete(data, 10, 1)
-  data = np.delete(data, 9, 1)
-  data = np.delete(data, 3, 1)
-  data = np.delete(data, 2, 1)
-  data = np.delete(data, 0, 1)
+  locations = data[:,5:9] # extract locations because we want to format those
+  data = np.delete(data, 10, 1) # trip duration 
+  data = np.delete(data, 9, 1) # store_and_fwd_flag
+  data = np.delete(data, 3, 1) # pickup datetime
+  data = np.delete(data, 2, 1) # dropoff datetime
+  data = np.delete(data, 0, 1) # id
 
   times = []
   for i,t in enumerate(pickup_times):
@@ -44,6 +46,12 @@ def format_data(data):
     times.append([time.tm_yday, time.tm_wday, 60 * time.tm_hour + time.tm_min])
     #we added columns: days away from january 1st, day of the week from sunday, minutes from 0:00   
   data = np.append(data,times, axis=1)
+
+  distances = [] # calculates euclidian distance in meters
+  for (pick_long, pick_lat, drop_long, drop_lat) in locations:
+    distances.append( [distance.distance((pick_lat, pick_long), (drop_lat,drop_long)).m] )
+  data = np.append(data,distances, axis=1)
+
   data = data.astype(float) # necessary for PCA
   data = preprocessing.scale(data)
   return data, trip_times
@@ -56,17 +64,13 @@ def PCA(data):
   V = Vt.transpose()
   return V,sv
 
-def visualizePCA(principal_components, data):
-  A = np.dot(data.transpose(), principal_components[0,:])
-  B = np.dot(data.transpose(), principal_components[1,:])
-  plt.scatter(A, B)
-  plt.show()
-
 def visualizeVariance(sv):
- squaredSV = sum(list(map(lambda x: x**2, sv)))
- for i in range(len(sv)):
-    plt.bar(i, ((sv[i]**2)/squaredSV))
- plt.show()
+  squaredSV = sum(list(map(lambda x: x**2, sv)))
+  for i in range(len(sv)):
+     plt.bar(i, ((sv[i]**2)/squaredSV))
+  plt.ylabel('Variance')
+  plt.xlabel('Principal Components')
+  plt.show()
 
 def projectDataOntoPC(data, pcs, n):
   # project data onto the first n pcs
@@ -80,15 +84,21 @@ def plotDifference(pcaData, normalData, tripTimes):
   X_train, X_test, y_train, y_test = train_test_split(pcaData, trip_times, test_size=0.1)
   model = linearRegression(X_train, y_train)
 
+  print('Score for PCA model', model.score(X_test,y_test))
   yResult = model.predict(X_test)
-  plt.hist(yResult - y_test, bins=100, label='With PCA')
+  plt.hist(yResult - y_test, bins=20, label='With PCA', range=(-2000,2000))
+  plt.xlabel('Difference between predicted and actual trip time')
+  plt.ylabel('Amount of trips')
 
   X_train, X_test, y_train, y_test = train_test_split(normalData, trip_times, test_size=0.1)
   model = linearRegression(X_train, y_train)
 
+  print('Score for normal model', model.score(X_test,y_test))
   yResult = model.predict(X_test)
-  plt.hist(yResult - y_test, bins=100, histtype='step', label='Without PCA')
+  plt.hist(yResult - y_test, bins=20, histtype='step', label='Without PCA', range=(-2000,2000))
   plt.legend()
+  plt.ylabel('Amount of trips')
+  plt.xlabel('Difference between predicted and actual trip time')
   plt.show()
 
 
@@ -96,12 +106,11 @@ data = np.array(pd.read_csv('reduced_train.csv'))
 treshold = 3
 filtered_data = removeOutliars(data, treshold)
 # visualizeOutliars(data,filtered_data,treshold)
-formatted_data, trip_times = format_data(filtered_data)
+# formatted_data, trip_times = format_data(filtered_data)
 
-principal_components, sv = PCA(formatted_data)
-projected_data = projectDataOntoPC(formatted_data, principal_components, 9)
+# principal_components, sv = PCA(formatted_data)
+# projected_data = projectDataOntoPC(formatted_data, principal_components, 6)
 
-plotDifference(projected_data, formatted_data, trip_times)
+# plotDifference(projected_data, formatted_data, trip_times)
 
-# visualizePCA(principal_components, formatted_data)
-visualizeVariance(sv)
+# visualizeVariance(sv)
